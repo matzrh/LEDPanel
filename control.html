@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="us">
+<head>
+<meta charset="utf-8">
+<title>Lamp Controls</title>
+<style>
+	body{
+		font: 62.5% "Trebuchet MS", sans-serif;
+		margin: 50px;
+	}
+	.demoHeaders {
+		margin-top: 2em;
+	}
+	
+</style>
+<script>
+	function initfon() {
+		var c=document.getElementById("colorCanvas");
+		c.addEventListener("mousedown", getPosition, false);
+		c.addEventListener("touchstart", getPosition, false);
+		var ctx=c.getContext("2d");
+		getXMLDoc("data.xml",setValsFromFile);
+	}
+		
+	function selectSet(element) {
+		var args="setval?"+element.name+"="+element.id;
+		sendHTTPReq("",args);	
+	}
+	function setSlide(element) {
+		var args="setval?"+element.id+"="+element.value;
+		sendHTTPReq("",args);	
+	}
+
+		
+	function getPosition(event)
+	{
+		var x = event.x;
+		var y = event.y;
+		var c = document.getElementById("colorCanvas");
+		x -= c.offsetLeft;
+		y -= c.offsetTop;
+		var dist=(x-100)*(x-100)+(y-100)*(y-100);
+		if((dist >= 4900) && (dist <= 10000)) {
+			var i= Math.floor(Math.atan((y-100)/(x-100))*36/Math.PI);
+			if (x<100) i+=36;
+			if (i<0) i+=72;
+			circleContour(i,c);
+			getPosition.currentIndex = i;	
+			barContour(getPosition.currentSat,c);
+			var args = "setval?"+getPosition.currentPrefix+"HueIndex=" + i*5;
+			sendHTTPReq("",args);
+		}
+		if((x>=45) && (x<=155) && (y>=80) && (y<=120)) {
+			barContour(x-45,c)
+			getPosition.currentSat = x-45;
+			var args = "setval?"+getPosition.currentPrefix+"SatIndex=" + 10*Math.floor((x-45)/10);
+			sendHTTPReq("",args);
+		}
+	}
+		
+	function setAutoColor() {
+		var anElement  = new Object();
+		anElement.id = "Current"; 
+		sendHTTPReq("","setval?auto");
+		document.getElementById("Current").checked = true;
+		setColor(anElement,"data.xml");
+	}
+		
+	function setColor(element,url) {
+		getPosition.currentPrefix=element.id;
+    	getXMLDoc(url,getColorFromXML);
+	}
+  		
+	function setValsFromFile(xmlDoc) {
+ 		try
+   		{
+	       	var setSelect=xmlDoc.getElementsByTagName("BackLightSelect")[0].firstChild.nodeValue;
+ 			var radioWhite = document.getElementsByName("BackLightSelect");
+   			for(var i=0; i<radioWhite.length; i++) 
+				if(radioWhite[i].id==setSelect) radioWhite[i].checked = true;
+	       	var setValue=xmlDoc.getElementsByTagName("BackLightValue")[0].firstChild.nodeValue;
+	       	document.getElementById("BackLightValue").value=setValue;
+	       	setSelect=xmlDoc.getElementsByTagName("ClockSelect")[0].firstChild.nodeValue;
+   			radioWhite = document.getElementsByName("ClockSelect");
+  			for(var i=0; i<radioWhite.length; i++) 
+  				if(radioWhite[i].id==setSelect) radioWhite[i].checked = true;
+            setSelect=xmlDoc.getElementsByTagName("radiomood")[0].firstChild.nodeValue;
+            if(setSelect!="dead") {
+                radioWhite = document.getElementsByName("radiomood");
+                for (var i=0; i<radioWhite.length; i++) {
+                    radioWhite[i].removeAttribute("disabled");
+                    if(radioWhite[i].id==setSelect) radioWhite[i].checked = true;
+                }
+                document.getElementById("mood_slider").removeAttribute("disabled");
+                setValue=xmlDoc.getElementsByTagName("mood_slider")[0].firstChild.nodeValue;
+                document.getElementById("mood_slider").removeAttribute("disabled");
+                document.getElementById("mood_slider").value=setValue;
+            }
+            
+	       	var setLimits1=parseFloat(xmlDoc.getElementsByTagName("HueLimit1")[0].firstChild.nodeValue);
+	       	var setLimits2=parseFloat(xmlDoc.getElementsByTagName("HueLimit2")[0].firstChild.nodeValue);
+       		drawCircle.rx1=Math.cos(setLimits1*Math.PI/36); drawCircle.ry1=Math.sin(setLimits1*Math.PI/36);
+       		drawCircle.rx2=Math.cos(setLimits2*Math.PI/36); drawCircle.ry2=Math.sin(setLimits2*Math.PI/36);
+	       	setLimits1=xmlDoc.getElementsByTagName("SatLimit")[0].firstChild.nodeValue;
+		    	drawSatRect.limit=parseInt(setLimits1)-5;
+            setSelect=xmlDoc.getElementsByTagName("ScanColors")[0].firstChild.nodeValue;
+            radioWhite = document.getElementsByName("ScanColors");
+            if(setSelect=="scanned") radioWhite[1].checked=true;
+            else radioWhite[0].checked=true;
+		}
+		catch (er)
+		{
+  			alert(er);
+		}
+		getPosition.currentPrefix="Current";
+      	getColorFromXML(xmlDoc);
+	}
+		
+	function getColorFromXML(xmlDoc) {
+		var prefix=getPosition.currentPrefix;
+		try
+		{
+	    	var hueTagName = prefix+"HueIndex";
+	    	var setHue=xmlDoc.getElementsByTagName(hueTagName)[0].firstChild.nodeValue;
+			getPosition.currentIndex=parseInt(setHue);
+		}
+		catch (er)
+		{
+			alert(er);
+			getPosition.currentIndex=0;
+		}
+		try
+		{
+			var satTagName = prefix+"SatIndex";
+	       	var setSat=xmlDoc.getElementsByTagName(satTagName)[0].firstChild.nodeValue;
+			getPosition.currentSat=parseInt(setSat);
+		}
+		catch (er)
+    	{
+			alert(er);
+			getPosition.currentSat=100;
+		}
+		var c= document.getElementById("colorCanvas");
+		circleContour(getPosition.currentIndex,c);
+		barContour(getPosition.currentSat,c);
+	}		
+		
+	function getXMLDoc(url,caller) {
+		xmlhttp=new XMLHttpRequest();
+		xmlhttp.onreadystatechange=function() {
+			if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+    			try
+	   			{
+			    	var xmlDoc=xmlhttp.responseXML.getElementsByTagName("Data")[0];
+			    	caller(xmlDoc);
+			    }
+			    catch (er)
+			    {
+			    	alert(er);
+			    }
+			}
+		}
+	  	xmlhttp.open("GET",url,true);
+	  	xmlhttp.send();
+	}
+		
+	function sendHTTPReq(url,args) {
+		httpReq=new XMLHttpRequest();
+	  	httpReq.open("GET",url+args,true);
+	  	httpReq.send();
+	}
+
+	function drawCircle(ctx) {
+		for(var i=0;i<72;i++) {
+			ctx.fillStyle=makeHSVString(i,100);
+			ctx.beginPath();
+			ctx.moveTo(100,100);
+			ctx.arc(100,100,100,Math.PI/36*i,Math.PI/36*(i+1));
+			ctx.fill();
+		}
+		ctx.beginPath();
+		ctx.fillStyle="#FFFFFF";
+		ctx.arc(100,100,70,0,2*Math.PI);
+		ctx.fill();
+		
+		ctx.beginPath();
+		ctx.strokeStyle = "#999999";
+		ctx.lineWidth = 1;
+		ctx.moveTo(100+100*drawCircle.rx1,100+100*drawCircle.ry1);
+		ctx.lineTo(100+60*drawCircle.rx1,100+60*drawCircle.ry1);
+		ctx.lineTo(100+60*drawCircle.rx1-5*drawCircle.ry1, 100+60*drawCircle.ry1+5*drawCircle.rx1);
+		ctx.moveTo(100+100*drawCircle.rx2,100+100*drawCircle.ry2);
+		ctx.lineTo(100+60*drawCircle.rx2,100+60*drawCircle.ry2);
+		ctx.lineTo(100+60*drawCircle.rx2+5*drawCircle.ry2, 100+60*drawCircle.ry2-5*drawCircle.rx2);
+		ctx.stroke();
+		
+	}		
+
+	function makeHSVString(index,S) {
+			var varCol=parseInt(255-255*Math.abs(12-(index%24))/12*S/100);
+			varCol = (varCol < 16) ? ("0" + varCol.toString(16)) : varCol.toString(16);
+			var varWhite=parseInt(2.55*(100-S));
+			varWhite = (varWhite < 16) ? ("0" + varWhite.toString(16)) : varWhite.toString(16);
+			var retString = "#000000";
+			switch (parseInt(index/12)) {
+				case 0: retString = "#FF" + varCol + varWhite; break;
+				case 1: retString = "#"+varCol+"FF" + varWhite; break;
+				case 2: retString = "#" + varWhite +"FF"+varCol; break;
+				case 3: retString = "#" + varWhite + varCol + "FF"; break;
+				case 4: retString = "#" + varCol + varWhite + "FF"; break;
+				case 5: retString = "#FF" + varWhite + varCol; break;
+				default: break;
+			}
+			return retString;
+	}	
+		
+		
+	function drawSatRect(ctx, ind) {
+		for(var sat=0;sat<=100;sat+=10) {
+			ctx.beginPath();
+			ctx.fillStyle=makeHSVString(ind,sat);
+			ctx.fillRect(45+sat,80,10,40);
+			ctx.fill();
+		}	 
+		ctx.beginPath();
+		ctx.strokeStyle="#555555";
+		ctx.lineWidth=1;
+		ctx.moveTo(50+drawSatRect.limit,70);
+		ctx.lineTo(50+drawSatRect.limit,130);
+		ctx.stroke();		
+	}
+			
+	function circleContour(i,theCanvas) {
+			var ctx=theCanvas.getContext("2d");
+			ctx.fillStyle="#ffffff";
+			ctx.fillRect(0,0,200,200);
+			drawCircle(ctx);
+			ctx.strokeStyle="#000000";
+			ctx.lineWidth=2;
+			ctx.beginPath();
+			var center=100;
+			var rx=Math.cos(i*Math.PI/36); var ry=Math.sin(i*Math.PI/36);
+			var rx1=Math.cos((i+1)*Math.PI/36); var ry1=Math.sin((i+1)*Math.PI/36);
+			ctx.moveTo(center + 70*rx,center +70*ry);
+			ctx.lineTo(center + 100*rx,center +100*ry);
+			ctx.arc(center,center,100,Math.PI/36*i,Math.PI/36*(i+1));
+			ctx.lineTo(center +70*rx1,center+70*ry1);
+			ctx.closePath();
+			ctx.stroke();
+	}		
+		
+	function barContour(sat,theCanvas) {
+			var ctx=theCanvas.getContext("2d");
+			ctx.fillStyle="#ffffff";
+			ctx.fillRect(40,70,120,60);
+			drawSatRect(ctx,getPosition.currentIndex);
+			ctx.strokeStyle="#000000";
+			var xmin=5+10*Math.floor((sat+40)/10);
+			ctx.lineWidth=2;
+			ctx.strokeRect(xmin,80,10,40);
+	}				
+	
+	function whiteBalance() {
+		var trigger=document.getElementById("WhiteBalance").checked;
+		if(trigger) {
+			document.getElementById("WhiteSliders").hidden=false;
+			document.getElementById("WhiteChecks").hidden=false;
+			getXMLDoc("data.xml",setWhiteSliders);
+			var whiteVal=0;
+			for(var i=1;i<4;i++) {
+				if (document.getElementById("White"+i).checked)
+				  whiteVal+=(1<<(i-1));
+			}
+			sendHTTPReq("","setval?white="+whiteVal);
+		}
+		else {
+			document.getElementById("WhiteSliders").hidden=true;
+			document.getElementById("WhiteChecks").hidden=true;
+			sendHTTPReq("","setval?white=0");
+		}
+	}
+	
+	function setWhiteSliders(xmlDoc) {
+		try {
+			var looper={R:"RWhite",G:"GWhite",B:"BWhite"};
+			var tagId, setSelect;
+			for (tagId in looper) {
+				setSelect=xmlDoc.getElementsByTagName(looper[tagId])[0].firstChild.nodeValue;
+				document.getElementById(looper[tagId]).value=parseInt(setSelect);
+			}
+		}
+		catch(er) {
+			alert (er);
+		}
+	}
+    
+</script>
+
+</head>
+<body onload=initfon()>
+
+
+
+<h1>LAMP CONTROLS</h1>
+
+<div id="switches" style="width:350px;float:left">
+<h2 class="demoHeaders">Clock Display</h2>
+<form style="margin-top: 1em">
+	<div id="whitelight_set" style="width:150px;float:left">
+		<input onchange="selectSet(this)" type="radio" id="Clock" name="ClockSelect" checked="checked"><label for="Switch">Clock</label>
+		<input onchange="selectSet(this)" type="radio" id="Off" name="ClockSelect"><label for="Off">Off</label>
+		<input onchange="selectSet(this)" type="radio" id="On" name="ClockSelect"><label for="On">On</label>
+	</div>
+</form>
+<p style="clear:left"/>
+<hr/>
+<h2 class="demoHeaders">White Backlight</h2>
+<form style="margin-top: 1em">
+	<div id="whitelight_set" style="width:150px;float:left">
+		<input onchange="selectSet(this)" type="radio" id="Switch" name="BackLightSelect" checked="checked"><label for="Switch">Switch</label>
+		<input onchange="selectSet(this)" type="radio" id="Off" name="BackLightSelect"><label for="Off">Off</label>
+		<input onchange="selectSet(this)" type="radio" id="On" name="BackLightSelect"><label for="On">On</label>
+	</div>
+	<div style="width:180px;float:left">
+		<input onchange="setSlide(this)" id="BackLightValue" type="range" max="255" step="5" style="width:150px" value="200">
+	</div>
+</form>
+<p style="clear:left"/>
+<hr/>
+<h2 class="demoHeaders">White Standing Lamp</h2>
+<form style="margin-top: 1em;">
+	<div id="standing_set" style="width:150px;float:left">
+		<input onchange="selectSet(this)" disabled="true" type="radio" id="Switch" name="radiolamp" checked="checked"><label for="Switch">Switch</label>
+		<input onchange="selectSet(this)" disabled="true" type="radio" id="Off" name="radiolamp"><label for="Off">Off</label>
+		<input onchange="selectSet(this)" disabled="true" type="radio" id="On" name="radiolamp"><label for="On">On</label>
+	</div>
+	<div style="width:180px;float:left">
+		<input onchange="setSlide(this)" disabled="true" id="standing_slider" type="range" max="255" step="5" style="width:150px">
+	</div>
+</form>
+<p style="clear:left"/>
+<hr/>
+<h2 class="demoHeaders">Mood Light</h2>
+<form style="margin-top: 1em;">
+	<div id="standing_set" style="width:150px;float:left">
+		<input onchange="selectSet(this)" disabled="true" type="radio" id="Switch" name="radiomood" checked="checked"><label for="Switch">Switch</label>
+		<input onchange="selectSet(this)" disabled="true" type="radio" id="Off" name="radiomood"><label for="Off">Off</label>
+		<input onchange="selectSet(this)" disabled="true" type="radio" id="On" name="radiomood"><label for="On">On</label>
+	</div>
+	<div style="width:180px;float:left">
+		<input onchange="setSlide(this)" disabled="true" id="mood_slider" type="range" max="255" step="5" style="width:150px">
+	</div>
+
+</form>
+<p style="clear:left"/>
+<hr/>
+
+</div>
+<div id="colorPicker" style="width:210px;float:left;margin-left:30px">
+<h2 class="demoHeaders">Color Picker</h2>
+<canvas id="colorCanvas" width="200" height="200">Browser does not support canvas</canvas>
+White Balance <br>
+<table style="width:210px;float:left">
+<tr><td width=50px>
+	<input type="checkbox" onchange="whiteBalance()" id="WhiteBalance"><label for="WhiteBalance">adjust</label>
+<div style="width:50px;float:left" id="WhiteChecks" hidden="true">
+	<input type="checkbox" onchange="whiteBalance()" id="White1" checked="true"><label for="White1">L1</label>
+	<br><input type="checkbox" onchange="whiteBalance()" id="White2" checked="true"><label for="White2">L2</label>
+	<br><input type="checkbox" onchange="whiteBalance()" id="White3" checked="true"><label for="White3">L3</label>
+<div>	
+</td>
+<td style="width:160px;float:left" id="WhiteSliders" hidden="true">
+	<input onchange="setSlide(this)" type="range" id="RWhite" max="255" style="width:140px">&nbsp;R
+	<br><input onchange="setSlide(this)" type="range" id="GWhite" max="255" style="width:140px">&nbsp;G
+	<br><input onchange="setSlide(this)" type="range" id="BWhite" max="255" style="width:140px">&nbsp;B
+</td></tr>
+</table>
+
+</div>
+<div id="colorMode" style = "width:160px;float:left;margin-left:10px">
+<h2 class="demoHeaders">Color Mode</h2>
+<form style="margin-top: 1em;">
+	<input onclick="setAutoColor()" type=button value="Random Select">
+	<br><input onchange="setColor(this,'data.xml')" type="radio" id="Current" name="setcolor" checked="checked"><label for="Current"><b>Current</b></label>
+	<br><br><input onchange="setColor(this,'data.xml')" type="radio" id="Spring" name="setcolor"><label for="Spring">Spring</label>
+	<br><input onchange="setColor(this,'data.xml')" type="radio" id="Summer" name="setcolor"><label for="Summer">Summer</label>
+	<br><input onchange="setColor(this,'data.xml')" type="radio" id="Fall" name="setcolor"><label for="Fall">Fall</label>
+	<br><input onchange="setColor(this,'data.xml')" type="radio" id="Winter" name="setcolor"><label for="Winter">Winter</label>
+    <br><br>
+    <input type="radio" onchange="selectSet(this)" id="fixed" name="ScanColors"><label for="fixed">fixed</label>&nbsp;or&nbsp;
+    <input type="radio" onchange="selectSet(this)" id="scanned" name="ScanColors" checked="checked"><label for="scanned">scanned</label>&nbsp;colors
+</form>
+
+</div>
+
+</body>
+</html>
+

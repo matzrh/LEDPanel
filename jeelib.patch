@@ -1,0 +1,44 @@
+--- /Users/hoellinm/Documents/Programming/Arduino/Libraries/jeelib/RF12.cpp	2017-09-24 22:39:13.000000000 +0200
++++ RF12.cpp	2019-07-28 15:42:50.000000000 +0200
+@@ -52,12 +52,14 @@
+ 
+ #if defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1280__)
+ 
+-#define RFM_IRQ     2
+-#define SS_DDR      DDRB
+-#define SS_PORT     PORTB
+-#define SS_BIT      0
++//#define RFM_IRQ     2
++#define RFM_IRQ     21
++#define SS_DDR      DDRL
++#define SS_PORT     PORTL
++#define SS_BIT      1
+ 
+ #define SPI_SS      53    // PB0, pin 19
++//#define SPI_SS      48    // PL1, pin 36
+ #define SPI_MOSI    51    // PB2, pin 21
+ #define SPI_MISO    50    // PB3, pin 22
+ #define SPI_SCK     52    // PB1, pin 20
+@@ -317,6 +319,7 @@
+     return r;
+ }
+ 
++
+ static void rf12_interrupt () {
+     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
+     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
+@@ -685,10 +688,11 @@
+             bitClear(PCMSK2, RFM_IRQ - 16);
+     #endif
+ #else
+-    if ((nodeid & NODE_ID) != 0)
+-        attachInterrupt(0, rf12_interrupt, LOW);
++    if ((nodeid & NODE_ID) != 0) {
++        attachInterrupt(digitalPinToInterrupt(RFM_IRQ), rf12_interrupt, LOW);
++    }
+     else
+-        detachInterrupt(0);
++        detachInterrupt(digitalPinToInterrupt(RFM_IRQ));
+ #endif
+ 
+     return nodeid;

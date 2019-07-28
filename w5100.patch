@@ -1,0 +1,15 @@
+--- /Users/hoellinm/w5100.h	2019-07-28 15:54:19.000000000 +0200
++++ w5100.h	2019-07-28 15:00:59.000000000 +0200
+@@ -343,10 +343,12 @@
+ 		pinMode(ss_pin, OUTPUT);
+ 	}
+ 	inline static void setSS() {
++		cli();
+ 		*(ss_pin_reg) &= ~ss_pin_mask;
+ 	}
+ 	inline static void resetSS() {
+ 		*(ss_pin_reg) |= ss_pin_mask;
++		sei();
+ 	}
+ #elif defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK66FX1M0__) || defined(__MK64FX512__)
+ 	static volatile uint8_t *ss_pin_reg;
